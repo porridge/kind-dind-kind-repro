@@ -1,0 +1,22 @@
+FROM debian:buster@sha256:903779f30a7ee46937bfb21406f125d5fdace4178074e1cc71c49039ebf7f48f
+
+RUN apt-get update && \
+    apt-get install -y apt-transport-https ca-certificates curl gnupg2 tini && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+    echo "deb [arch=amd64] https://download.docker.com/linux/debian buster stable" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && \
+    apt-get install -y docker-ce && \
+    rm -rf /var/lib/apt/lists/*
+
+# Switch to use iptables instead of nftables
+# https://github.com/moby/moby/issues/26824
+RUN update-alternatives --set iptables  /usr/sbin/iptables-legacy || true && \
+    update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy || true && \
+    update-alternatives --set arptables /usr/sbin/arptables-legacy || true
+
+ARG KIND_VERSION
+COPY ./bin/kind-$KIND_VERSION /usr/local/bin/kind
+COPY dind-entrypoint.sh /entrypoint.sh
+
+VOLUME /var/lib/docker
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/entrypoint.sh"]
